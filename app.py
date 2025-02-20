@@ -49,7 +49,6 @@ def process_html_file(message):
                         videos.append(f'{name}: {link}')
     
     # Save to .txt file
-    # Save to .txt file
 if videos:
     with open(txt_file_path, "w", encoding="utf-8") as f:
         f.write("\n".join(videos))
