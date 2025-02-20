@@ -13,36 +13,28 @@ bot = telebot.TeleBot(TOKEN)
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-@bot.message_handler(content_types=['document'])
-def handle_docs(message):
-    file_info = bot.get_file(message.document.file_id)
-    file_name = message.document.file_name
-
-    if not file_name.endswith('.html'):
-        bot.send_message(message.chat.id, "Please upload a .html file.")
-        return
-
-    downloaded_file = bot.download_file(file_info.file_path)
-    html_path = f"/tmp/{file_name}"
-
-    with open(html_path, 'wb') as new_file:
-        new_file.write(downloaded_file)
-
-    # Convert HTML to Text
-    with open(html_path, 'r', encoding='utf-8') as file:
-        soup = BeautifulSoup(file, 'html.parser')
-        text = soup.get_text()
-
-    txt_path = html_path.replace('.html', '.txt')
-    with open(txt_path, 'w', encoding='utf-8') as txt_file:
-        txt_file.write(text)
-
-    # Send the converted file
-    with open(txt_path, 'rb') as txt_file:
-        bot.send_document(message.chat.id, txt_file, caption="Here is your converted .txt file.")
-
-    # Cleanup
-    os.remove(html_path)
-    os.remove(txt_path)
+@bot.on_message(filters.command('h2t'))
+async def run_bot(bot: Client, m: Message):
+        editable = await m.reply_text(" **Send Your HTML file**\n")
+        input: Message = await bot.listen(editable.chat.id)
+        html_file = await input.download()
+        await input.delete(True)
+        await editable.delete()
+        with open(html_file, 'r') as f:
+            soup = BeautifulSoup(f, 'html.parser')
+            tables = soup.find_all('table')
+            videos = []
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cols = row.find_all('td')
+                    name = cols[0].get_text().strip()
+                    link = cols[1].find('a')['href']
+                    videos.append(f'{name}:{link}')
+        txt_file = os.path.splitext(html_file)[0] + '.txt'
+        with open(txt_file, 'w') as f:
+            f.write('\n'.join(videos))
+        await m.reply_document(document=txt_file,caption="Here is your txt file.")
+        os.remove(txt_file)
 
 bot.polling()
