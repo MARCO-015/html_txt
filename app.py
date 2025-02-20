@@ -49,17 +49,30 @@ def process_html_file(message):
                         videos.append(f'{name}: {link}')
     
     # Save to .txt file
-    txt_file_path = os.path.splitext(html_file_path)[0] + ".txt"
+    # Save to .txt file
+if videos:
     with open(txt_file_path, "w", encoding="utf-8") as f:
         f.write("\n".join(videos))
-    
-    # Send the .txt file back
-    with open(txt_file_path, "rb") as f:
-        bot.send_document(message.chat.id, f, caption="Here is your TXT file.")
-    
-    # Cleanup
+else:
+    bot.send_message(message.chat.id, "No video links found in the HTML file.")
     os.remove(html_file_path)
+    return  # Stop execution
+
+# Check if file is empty
+if os.path.getsize(txt_file_path) == 0:
+    bot.send_message(message.chat.id, "The generated TXT file is empty. Please check your HTML file.")
     os.remove(txt_file_path)
+    os.remove(html_file_path)
+    return
+
+# Send the file
+with open(txt_file_path, "rb") as f:
+    bot.send_document(message.chat.id, f, caption="Here is your TXT file.")
+
+# Cleanup
+os.remove(html_file_path)
+os.remove(txt_file_path)
+
 
 # Start the bot
 bot.polling()
