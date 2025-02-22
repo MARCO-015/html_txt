@@ -6,8 +6,8 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 
 # Get credentials from environment variables
-API_ID = os.getenv("API_ID", "ac24e438ff9a0f600cf3283e6d60b1aa")
-API_HASH = os.getenv("API_HASH", "25579552")
+API_ID = os.getenv("API_ID", "25579552")
+API_HASH = os.getenv("API_HASH", "ac24e438ff9a0f600cf3283e6d60b1aa")
 TOKEN = os.getenv("BOT_TOKEN", "7385301627:AAHK0x8Lg1AoYdh6mechKu6LJOjaHKuYX50")
 
 bot = telebot.TeleBot(TOKEN)
