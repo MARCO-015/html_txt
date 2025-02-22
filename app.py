@@ -92,7 +92,7 @@ def handle_docs(message):
     os.remove(videos_path)
 
 # ✅ Pyrogram Handler for /h2t Command
-@pyro_bot.on_message(filters.command("h2t"))
+@pyro_bot.on_message(filters.command("txt"))
 async def ask_for_file(client: Client, message: Message):
     await message.reply_text("📂 **Send Your HTML file**")
 
@@ -134,9 +134,9 @@ async def handle_html_file(client: Client, message: Message):
 @pyro_bot.on_message(filters.command("start"))
 async def start(client: Client, msg: Message):
     start_message = await client.send_message(msg.chat.id, "🌟 **Welcome!** 🌟\n")
-    for progress, status in [(0, "Initializing bot..."), (25, "Loading features..."), (50, "Almost ready..."), (75, "Finalizing setup..."), (100, "✅ Bot is ready! Type /h2t to start!")]:
+    for progress, status in [(0, "Initializing bot..."), (25, "Loading features..."), (50, "Almost ready..."), (75, "Finalizing setup..."), (100, "✅ Bot is ready! Type /txt to start!")]:
         await asyncio.sleep(1)
-        await start_message.edit_text(f"🌟 **Welcome!** 🌟\n\n{status}\n\nProgress: [{'🟩' * (progress // 10)}{'⬜' * (10 - (progress // 10))}] {progress}%")
+        await start_message.edit_text(f"🌟 **Welcome!** 🌟\n\n{status}\n\nProgress: [{'🟩' * (progress // 10)}{'⬜' * (10 - (progress // 10))}] ")
 
 # ✅ Run Both Bots
 pyro_bot.run()
