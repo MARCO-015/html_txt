@@ -40,6 +40,12 @@ def handle_docs(message):
         f.write(downloaded_file)
     
     extracted_text = html_to_txt(html_path)
+    
+    if not extracted_text.strip():  # Check if the extracted text is empty
+        bot.reply_to(message, "The uploaded HTML file contains no valid text content.")
+        os.remove(html_path)
+        return
+    
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write(extracted_text)
     
