@@ -14,7 +14,7 @@ def html_to_txt(file_path):
         soup = BeautifulSoup(file, "html.parser")
     
     text_content = []
-    for tag in soup.find_all(['h6', 'onclick', 'src', 'href']):
+    for tag in soup.find_all(['h6', 'onclick', 'openZoomLink', 'src', 'href']):
         text = tag.get_text(strip=True)
         if tag.name == "a" and tag.get("href"):
             text += f" (Link: {tag['href']})"
