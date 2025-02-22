@@ -7,7 +7,7 @@ API_ID = os.getenv("API_ID", "ac24e438ff9a0f600cf3283e6d60b1aa")
 API_HASH = os.getenv("API_HASH", "25579552")
 TOKEN = os.getenv("BOT_TOKEN", "7385301627:AAHK0x8Lg1AoYdh6mechKu6LJOjaHKuYX50")
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(TOKEN)
 
 def html_to_txt(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
