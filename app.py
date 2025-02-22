@@ -1,5 +1,4 @@
 import os
-import logging
 import telebot
 from bs4 import BeautifulSoup
 
@@ -8,73 +7,47 @@ API_ID = os.getenv("API_ID", "ac24e438ff9a0f600cf3283e6d60b1aa")
 API_HASH = os.getenv("API_HASH", "25579552")
 TOKEN = os.getenv("BOT_TOKEN", "7385301627:AAHK0x8Lg1AoYdh6mechKu6LJOjaHKuYX50")
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN)
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-
-@bot.message_handler(commands=['h2t'])
-def request_html(message):
-    bot.reply_to(message, "**Send Your HTML file**")
+def html_to_txt(file_path):
+    with open(file_path, "r", encoding="utf-8") as file:
+        soup = BeautifulSoup(file, "html.parser")
+    
+    text_content = []
+    for tag in soup.find_all(['p', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li']):
+        text = tag.get_text(strip=True)
+        if tag.name == "a" and tag.get("href"):
+            text += f" (Link: {tag['href']})"
+        text_content.append(text)
+    
+    return "\n".join(text_content)
 
 @bot.message_handler(content_types=['document'])
-def process_html_file(message):
-    try:
-        file_id = message.document.file_id
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        
-        html_file_path = message.document.file_name
-        
-        with open(html_file_path, "wb") as f:
-            f.write(downloaded_file)
-        
-        with open(html_file_path, "r", encoding="utf-8") as f:
-            soup = BeautifulSoup(f, 'html.parser')
-            videos = []
-            
-            # Extract links from tables
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cols = row.find_all('td')
-                    name = cols[0].get_text(strip=True) if cols else "Unknown"
-                    
-                    link_tag = row.find('a', href=True)
-                    if link_tag:
-                        link = link_tag['href']
-                        videos.append(f'{name}: {link}')
-            
-            # Extract links outside tables if none were found
-            if not videos:
-                all_links = soup.find_all('a', href=True)
-                for link_tag in all_links:
-                    link = link_tag['href']
-                    name = link_tag.get_text(strip=True) or "Unnamed Link"
-                    videos.append(f'{name}: {link}')
-
-        # Debugging output
-        print("Extracted video links:", videos)
-
-        txt_file_path = os.path.splitext(html_file_path)[0] + ".txt"
-
-        if videos:
-            with open(txt_file_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(videos))
-        else:
-            bot.send_message(message.chat.id, "No video links found in the HTML file.")
-            os.remove(html_file_path)
-            return
-        
-        with open(txt_file_path, "rb") as f:
-            bot.send_document(message.chat.id, f, caption="Here is your TXT file.")
-
-        os.remove(html_file_path)
-        os.remove(txt_file_path)
+def handle_docs(message):
+    file_info = bot.get_file(message.document.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    file_name = message.document.file_name
     
-    except Exception as e:
-        bot.send_message(message.chat.id, f"An error occurred: {str(e)}")
-        logging.error(f"Error: {str(e)}")
+    if not file_name.endswith(".html"):
+        bot.reply_to(message, "Please upload an HTML file.")
+        return
+    
+    html_path = f"downloads/{file_name}"
+    txt_path = html_path.replace(".html", ".txt")
+    
+    os.makedirs("downloads", exist_ok=True)
+    with open(html_path, "wb") as f:
+        f.write(downloaded_file)
+    
+    extracted_text = html_to_txt(html_path)
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(extracted_text)
+    
+    with open(txt_path, "rb") as f:
+        bot.send_document(message.chat.id, f)
+    
+    os.remove(html_path)
+    os.remove(txt_path)
 
-bot.polling(none_stop=True)
+bot.polling()
+
