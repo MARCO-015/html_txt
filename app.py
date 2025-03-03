@@ -9,9 +9,9 @@ from urllib.parse import urljoin
 
 # Get credentials from environment variables
 OWNER = 7548265642
-API_ID = os.getenv("API_ID", "25579552")
+API_ID = int(os.getenv("API_ID", "25579552"))
 API_HASH = os.getenv("API_HASH", "ac24e438ff9a0f600cf3283e6d60b1aa")
-TOKEN = os.getenv("BOT_TOKEN", "7385301627:AAHK0x8Lg1AoYdh6mechKu6LJOjaHKuYX50")
+TOKEN = os.getenv("BOT_TOKEN", "7385301627:AAHK0xLg1AoYdh6mechKu6LJOjaHKuYX50")
 
 # Initialize bots
 bot = telebot.TeleBot(TOKEN)
@@ -62,21 +62,23 @@ def download_website(url, save_dir):
             assets.append(urljoin(url, file_url))
     
     for asset in assets:
-        asset_data = requests.get(asset).text
-        filename = os.path.join(save_dir, os.path.basename(asset))
-        with open(filename, "w", encoding="utf-8") as file:
-            file.write(asset_data)
+        asset_response = requests.get(asset)
+        if asset_response.status_code == 200:
+            filename = os.path.join(save_dir, os.path.basename(asset))
+            with open(filename, "w", encoding="utf-8") as file:
+                file.write(asset_response.text)
     
     return "Website downloaded successfully!"
 
 # ✅ Pyrogram Handler for /download Command
 @pyro_bot.on_message(filters.command("download"))
 async def download_command(client: Client, message: Message):
-    url = message.text.split(" ", 1)[-1]
-    if not url.startswith("http"):
+    parts = message.text.split(" ", 1)
+    if len(parts) < 2 or not parts[1].startswith("http"):
         await message.reply_text("❌ Please provide a valid URL.")
         return
     
+    url = parts[1]
     save_path = f"downloads/{message.chat.id}"
     result = download_website(url, save_path)
     await message.reply_text(result)
@@ -92,7 +94,7 @@ async def handle_html_file(client: Client, message: Message):
         await message.reply_text("❌ Please upload a valid HTML file.")
         return
     
-    html_file = await message.download()
+    html_file = await client.download_media(message.document)
     extracted_text, urls, videos = html_to_txt(html_file)
 
     if not extracted_text.strip():
