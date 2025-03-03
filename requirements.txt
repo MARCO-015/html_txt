@@ -1,4 +1,7 @@
-beautifulsoup4
+telebot
 pyrogram
 tgcrypto
-telebot
+beautifulsoup4
+requests
+aiohttp
+lxml
