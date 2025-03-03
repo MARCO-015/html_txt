@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 OWNER = 7548265642
 API_ID = os.getenv("API_ID", "25579552")
 API_HASH = os.getenv("API_HASH", "ac24e438ff9a0f600cf3283e6d60b1aa")
-TOKEN = os.getenv("BOT_TOKEN", "7548242755:AAGiLXS6Qc2ZCPksD73t7yVlPKeFi4w86gM")
+TOKEN = os.getenv("BOT_TOKEN", "7385301627:AAHK0x8Lg1AoYdh6mechKu6LJOjaHKuYX50")
 
 # Initialize bots
 bot = telebot.TeleBot(TOKEN)
