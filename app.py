@@ -2,6 +2,7 @@ import os
 import asyncio
 import requests
 import telebot
+import zipfile
 from bs4 import BeautifulSoup
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -43,46 +44,62 @@ def html_to_txt(file_path):
     
     return "\n".join(text_content), urls, videos
 
-# Function to download website source code (HTML, CSS, JS)
+# Function to download website source code (HTML, CSS, JS, Images)
 def download_website(url, save_dir):
     response = requests.get(url)
     if response.status_code != 200:
         return "Failed to fetch the website."
     
     os.makedirs(save_dir, exist_ok=True)
-    
     soup = BeautifulSoup(response.text, "html.parser")
+    
+    # Save HTML file
     with open(os.path.join(save_dir, "index.html"), "w", encoding="utf-8") as file:
         file.write(response.text)
     
     assets = []
-    for tag in soup.find_all(["link", "script"]):
+    for tag in soup.find_all(["link", "script", "img"]):
         file_url = tag.get("href") or tag.get("src")
-        if file_url and file_url.endswith((".css", ".js")):
-            assets.append(urljoin(url, file_url))
+        if file_url:
+            full_url = urljoin(url, file_url)
+            assets.append(full_url)
     
     for asset in assets:
         asset_response = requests.get(asset)
         if asset_response.status_code == 200:
-            filename = os.path.join(save_dir, os.path.basename(asset))
-            with open(filename, "w", encoding="utf-8") as file:
-                file.write(asset_response.text)
+            parsed_url = urlparse(asset)
+            filename = os.path.basename(parsed_url.path)
+            file_path = os.path.join(save_dir, filename)
+            
+            with open(file_path, "wb") as file:
+                file.write(asset_response.content)
     
-    return "Website downloaded successfully!"
+    zip_path = save_dir + ".zip"
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, _, files in os.walk(save_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                zipf.write(file_path, os.path.relpath(file_path, save_dir))
+    
+    return zip_path
 
-# ✅ Pyrogram Handler for /download Command
+# Pyrogram handler for /download
 @pyro_bot.on_message(filters.command("download"))
 async def download_command(client: Client, message: Message):
-    parts = message.text.split(" ", 1)
-    if len(parts) < 2 or not parts[1].startswith("http"):
+    url = message.text.split(" ", 1)[-1]
+    if not url.startswith("http"):
         await message.reply_text("❌ Please provide a valid URL.")
         return
     
-    url = parts[1]
     save_path = f"downloads/{message.chat.id}"
-    result = download_website(url, save_path)
-    await message.reply_text(result)
-
+    zip_file = download_website(url, save_path)
+    
+    if zip_file:
+        await message.reply_document(zip_file, caption="📂 Website Downloaded")
+        os.remove(zip_file)
+    else:
+        await message.reply_text("❌ Failed to download the website.")
+        
 # ✅ Pyrogram Handler for /txt Command
 @pyro_bot.on_message(filters.command("txt"))
 async def ask_for_file(client: Client, message: Message):
