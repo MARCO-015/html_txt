@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 # Get credentials from environment variables
 OWNER = 7548265642
