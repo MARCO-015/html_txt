@@ -1,14 +1,17 @@
 import os
 import asyncio
+import requests
 import telebot
 from bs4 import BeautifulSoup
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from urllib.parse import urljoin
 
 # Get credentials from environment variables
-API_ID = int(os.getenv("API_ID", ""))  # Ensuring it's an integer
-API_HASH = os.getenv("API_HASH", "")
-TOKEN = os.getenv("BOT_TOKEN", "")
+OWNER = 7548265642
+API_ID = os.getenv("API_ID", "25579552")
+API_HASH = os.getenv("API_HASH", "ac24e438ff9a0f600cf3283e6d60b1aa")
+TOKEN = os.getenv("BOT_TOKEN", "7548242755:AAGiLXS6Qc2ZCPksD73t7yVlPKeFi4w86gM")
 
 # Initialize bots
 bot = telebot.TeleBot(TOKEN)
@@ -19,9 +22,7 @@ def html_to_txt(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         soup = BeautifulSoup(file, "html.parser")
     
-    text_content = []
-    urls = []
-    videos = []
+    text_content, urls, videos = [], [], []
     
     for tag in soup.find_all(['p', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li']):
         text = tag.get_text(strip=True)
@@ -31,67 +32,56 @@ def html_to_txt(file_path):
             text += f" (Link: {url})"
         text_content.append(text)
     
-    # Extract video links from tables
     tables = soup.find_all('table')
     for table in tables:
-        rows = table.find_all('tr')
-        for row in rows:
+        for row in table.find_all('tr'):
             cols = row.find_all('td')
-            if len(cols) > 1:
+            if len(cols) > 1 and cols[1].find('a'):
                 name = cols[0].get_text().strip()
-                link = cols[1].find('a')['href'] if cols[1].find('a') else ''
-                if link:
-                    videos.append(f'{name}:{link}')
+                link = cols[1].find('a')['href']
+                videos.append(f'{name}: {link}')
     
     return "\n".join(text_content), urls, videos
 
-# ✅ Telebot Handler for Document Uploads
-@bot.message_handler(content_types=['document'])
-def handle_docs(message):
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    file_name = message.document.file_name
-
-    if not file_name.endswith(".html"):
-        bot.reply_to(message, "❌ Please upload an HTML file.")
-        return
-
-    os.makedirs("downloads", exist_ok=True)
-    html_path = f"downloads/{file_name}"
-    txt_path = html_path.replace(".html", ".txt")
-    urls_path = html_path.replace(".html", "_urls.txt")
-    videos_path = html_path.replace(".html", "_videos.txt")
-
-    with open(html_path, "wb") as f:
-        f.write(downloaded_file)
+# Function to download website source code (HTML, CSS, JS)
+def download_website(url, save_dir):
+    response = requests.get(url)
+    if response.status_code != 200:
+        return "Failed to fetch the website."
     
-    extracted_text, urls, videos = html_to_txt(html_path)
+    os.makedirs(save_dir, exist_ok=True)
+    
+    soup = BeautifulSoup(response.text, "html.parser")
+    with open(os.path.join(save_dir, "index.html"), "w", encoding="utf-8") as file:
+        file.write(response.text)
+    
+    assets = []
+    for tag in soup.find_all(["link", "script"]):
+        file_url = tag.get("href") or tag.get("src")
+        if file_url and file_url.endswith((".css", ".js")):
+            assets.append(urljoin(url, file_url))
+    
+    for asset in assets:
+        asset_data = requests.get(asset).text
+        filename = os.path.join(save_dir, os.path.basename(asset))
+        with open(filename, "w", encoding="utf-8") as file:
+            file.write(asset_data)
+    
+    return "Website downloaded successfully!"
 
-    if not extracted_text.strip():
-        bot.reply_to(message, "❌ The uploaded HTML file contains no valid text content.")
-        os.remove(html_path)
+# ✅ Pyrogram Handler for /download Command
+@pyro_bot.on_message(filters.command("download"))
+async def download_command(client: Client, message: Message):
+    url = message.text.split(" ", 1)[-1]
+    if not url.startswith("http"):
+        await message.reply_text("❌ Please provide a valid URL.")
         return
     
-    with open(txt_path, "w", encoding="utf-8") as f:
-        f.write(extracted_text)
-    with open(urls_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(urls))
-    with open(videos_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(videos))
+    save_path = f"downloads/{message.chat.id}"
+    result = download_website(url, save_path)
+    await message.reply_text(result)
 
-    with open(txt_path, "rb") as f:
-        bot.send_document(message.chat.id, f)
-    with open(urls_path, "rb") as f:
-        bot.send_document(message.chat.id, f)
-    with open(videos_path, "rb") as f:
-        bot.send_document(message.chat.id, f)
-
-    os.remove(html_path)
-    os.remove(txt_path)
-    os.remove(urls_path)
-    os.remove(videos_path)
-
-# ✅ Pyrogram Handler for /h2t Command
+# ✅ Pyrogram Handler for /txt Command
 @pyro_bot.on_message(filters.command("txt"))
 async def ask_for_file(client: Client, message: Message):
     await message.reply_text("📂 **Send Your HTML file**")
@@ -101,7 +91,7 @@ async def handle_html_file(client: Client, message: Message):
     if not message.document.file_name.endswith(".html"):
         await message.reply_text("❌ Please upload a valid HTML file.")
         return
-
+    
     html_file = await message.download()
     extracted_text, urls, videos = html_to_txt(html_file)
 
@@ -109,10 +99,10 @@ async def handle_html_file(client: Client, message: Message):
         await message.reply_text("❌ The uploaded HTML file contains no valid text content.")
         os.remove(html_file)
         return
-
-    txt_file = os.path.splitext(html_file)[0] + ".txt"
-    urls_file = os.path.splitext(html_file)[0] + "_urls.txt"
-    videos_file = os.path.splitext(html_file)[0] + "_videos.txt"
+    
+    txt_file = html_file.replace(".html", ".txt")
+    urls_file = html_file.replace(".html", "_urls.txt")
+    videos_file = html_file.replace(".html", "_videos.txt")
 
     with open(txt_file, "w", encoding="utf-8") as f:
         f.write(extracted_text)
@@ -120,24 +110,15 @@ async def handle_html_file(client: Client, message: Message):
         f.write("\n".join(urls))
     with open(videos_file, "w", encoding="utf-8") as f:
         f.write("\n".join(videos))
-
-    await message.reply_document(document=txt_file, caption="📜 Here is your extracted text file.")
-    await message.reply_document(document=urls_file, caption="🔗 Here are the extracted URLs.")
-    await message.reply_document(document=videos_file, caption="🎥 Here are the extracted video links.")
-
+    
+    await message.reply_document(txt_file, caption="📜 Extracted Text")
+    await message.reply_document(urls_file, caption="🔗 Extracted URLs")
+    await message.reply_document(videos_file, caption="🎥 Extracted Videos")
+    
     os.remove(html_file)
     os.remove(txt_file)
     os.remove(urls_file)
     os.remove(videos_file)
 
-# ✅ Start Command with Animated Progress
-@pyro_bot.on_message(filters.command("start"))
-async def start(client: Client, msg: Message):
-    start_message = await client.send_message(msg.chat.id, "🌟 **Welcome!** 🌟\n")
-    for progress, status in [(0, "Initializing bot..."), (25, "Loading features..."), (50, "Almost ready..."), (75, "Finalizing setup..."), (100, "✅ Bot is ready! Type /txt to start!")]:
-        await asyncio.sleep(1)
-        await start_message.edit_text(f"🌟 **Welcome!** 🌟\n\n{status}\n\nProgress: [{'🟩' * (progress // 10)}{'⬜' * (10 - (progress // 10))}] ")
-
-# ✅ Run Both Bots
+# ✅ Run the bot
 pyro_bot.run()
-bot.polling()
